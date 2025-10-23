@@ -20,11 +20,32 @@ export function baseOptions(): BaseLayoutProps {
           >
             <circle cx={12} cy={12} r={12} fill="currentColor" />
           </svg>
-          My App
+          Rk8s
         </>
       ),
     },
     // see https://fumadocs.dev/docs/ui/navigation/links
-    links: [],
+    links: [
+      {
+        text: 'Download',
+        url: '/download',
+        active: 'nested-url',
+      },
+      {
+        text: 'Documentation',
+        url: '/docs',
+        active: 'nested-url',
+      },
+      {
+        text: 'Blog',
+        url: '/blog',
+        active: 'nested-url',
+      },
+      {
+        text: 'Source',
+        url: 'https://source.rk8s.dev',
+        active: 'nested-url',
+      },
+    ],
   };
 }
