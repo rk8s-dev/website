@@ -18,17 +18,17 @@ export function baseOptions(): BaseLayoutProps {
             xmlns="http://www.w3.org/2000/svg"
             aria-label="Logo"
           >
-            <circle cx={12} cy={12} r={12} fill="currentColor" />
+          <circle cx={12} cy={12} r={12} fill="currentColor" />
           </svg>
-          Rk8s
+          RK8S
         </>
       ),
     },
     // see https://fumadocs.dev/docs/ui/navigation/links
     links: [
       {
-        text: 'Download',
-        url: '/download',
+        text: 'Install',
+        url: '/install',
         active: 'nested-url',
       },
       {
@@ -42,8 +42,8 @@ export function baseOptions(): BaseLayoutProps {
         active: 'nested-url',
       },
       {
-        text: 'Source',
-        url: 'https://source.rk8s.dev',
+        text: 'Forge',
+        url: 'https://forge.rk8s.dev',
         active: 'nested-url',
       },
     ],

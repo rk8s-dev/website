@@ -18,7 +18,7 @@ export async function GET(
       <DefaultImage
         title={page.data.title}
         description={page.data.description}
-        site="rk8s"
+        site="Rk8s - Kubernetes Reforged in Rust"
       />
     ),
     {
