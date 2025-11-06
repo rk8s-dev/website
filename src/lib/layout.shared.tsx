@@ -6,7 +6,6 @@ import Image from 'next/image';
  *
  * you can customise layouts individually from:
  * Home Layout: app/(home)/layout.tsx
- * Docs Layout: app/docs/layout.tsx
  */
 export function baseOptions(): BaseLayoutProps {
   return {
@@ -47,5 +46,30 @@ export function baseOptions(): BaseLayoutProps {
         active: 'nested-url',
       },
     ],
+  };
+}
+
+/**
+ * Shared layout configurations
+ *
+ * you can customise layouts individually from:
+ * Docs Layout: app/docs/layout.tsx
+ */
+export function docOptions(): BaseLayoutProps {
+  return {
+    nav: {
+      title: (
+        <>
+          <Image
+            src="/images/logo/logo-blue.svg"
+            width={24}
+            height={24}
+            alt="Logo"
+            className="mr-2"
+          />
+          RK8S
+        </>
+      ),
+    },
   };
 }
