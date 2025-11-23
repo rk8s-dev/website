@@ -1,0 +1,5 @@
+{
+  "title": "Getting Started",
+  "pages": ["what-rk8s", "installing"],
+  "defaultOpen": true
+}

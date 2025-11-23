@@ -1,0 +1,5 @@
+{
+  "title": "Installing",
+  "pages": ["rk8s", "rkb", "distribution", "slayerfs"],
+  "defaultOpen": true
+}

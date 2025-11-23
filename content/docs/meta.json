@@ -1,0 +1,5 @@
+{
+  "title": "Rk8s",
+  "pages": ["getting-started", "rks", "rkl", "rkb", "distribution", "slayerfs", "users", "concepts", "crates", "developers", "references"],
+  "defaultOpen": true
+}
