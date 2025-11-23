@@ -1,5 +1,5 @@
 {
   "title": "Crates",
   "pages": ["libfuse-rs", "rfuse3", "libvault-core"],
-  "defaultOpen": true
+  "defaultOpen": false
 }
