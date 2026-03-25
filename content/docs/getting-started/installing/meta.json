@@ -1,5 +1,5 @@
 {
   "title": "Installing",
-  "pages": ["rk8s", "rkb", "distribution", "slayerfs"],
+  "pages": ["rk8s", "rkforge", "distribution", "slayerfs"],
   "defaultOpen": true
 }

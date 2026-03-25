@@ -1,0 +1,5 @@
+{
+  "title": "Distribution",
+  "pages": ["guides/deployment", "guides/authentication", "reference/api", "reference/storage"],
+  "defaultOpen": false
+}

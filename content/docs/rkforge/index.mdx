@@ -1,0 +1,39 @@
+---
+title: rkforge
+description: rkforge is a container image builder and registry management tool.
+---
+
+## Overview
+
+rkforge is a Rust-based container image builder and OCI registry management tool. It provides a Docker-compatible build experience with additional features for interacting with Distribution servers.
+
+## Key Features
+
+- **Image Building**: Build container images from Dockerfile with support for multi-stage builds
+- **Registry Management**: Push and pull images to/from OCI-compliant registries
+- **GitHub OAuth Authentication**: Secure login via GitHub OAuth flow
+- **Multi-platform Support**: Works on Linux with native overlayfs or libfuse-rs
+
+## Quick Reference
+
+| Command | Description |
+|---------|-------------|
+| `rkforge build` | Build an image from Dockerfile |
+| `rkforge push` | Push an image to a registry |
+| `rkforge pull` | Pull an image from a registry |
+| `rkforge login` | Login to a registry |
+| `rkforge logout` | Logout from a registry |
+| `rkforge repo` | List and manage repositories |
+
+## Installation
+
+See the [Getting Started](/docs/getting-started/installing/rkforge) guide for installation instructions.
+
+## Architecture
+
+rkforge follows a modular architecture:
+
+- **CLI Layer**: Command parsing and dispatch
+- **Build Pipeline**: Dockerfile parsing, stage execution, layer compression
+- **OverlayFS Runtime**: Container filesystem mounting via native Linux mount or libfuse
+- **Registry & Auth**: OAuth flow, token management, and registry API communication

@@ -1,6 +1,63 @@
 ---
 title: distribution
-description: Rk8s is a lightweight, Kubernetes-compatible container orchestration.
+description: Install Distribution from source or Docker.
 ---
 
-## Installing Distribution
+## Docker Installation
+
+The easiest way to get started:
+
+```bash
+docker run -d \
+  --name distribution \
+  -p 8968:8968 \
+  -e OCI_REGISTRY_STORAGE=FILESYSTEM \
+  -e POSTGRES_PASSWORD=mysecretpassword \
+  -e JWT_SECRET=dev-secret \
+  -e INTERNAL_VERIFY_TOKEN=dev-internal-token \
+  -v distribution-data:/var/lib/oci-registry \
+  distribution
+```
+
+## Building from Source
+
+### Prerequisites
+
+- Rust toolchain (stable)
+- PostgreSQL database
+- pkg-config and libssl-dev
+
+### Build
+
+```bash
+# Clone the repository
+git clone https://github.com/rk8s-dev/rk8s.git
+cd rk8s
+
+# Build distribution
+cargo build -p distribution --release
+```
+
+### Run
+
+```bash
+# Create the data directory
+sudo mkdir -p /var/lib/oci-registry
+sudo chown $(id -u):$(id -g) /var/lib/oci-registry
+
+# Run with PostgreSQL on localhost
+./target/release/distribution \
+  --port 8968 \
+  --storage FILESYSTEM \
+  --root /var/lib/oci-registry
+```
+
+## Verify Installation
+
+Check that the registry is running:
+
+```bash
+curl http://localhost:8968/
+```
+
+You should see `Docker-Distribution-API-Version: registry/2.0` in the response headers.

@@ -1,0 +1,72 @@
+---
+title: Configuration Reference
+description: Configuration options for rkforge.
+---
+
+## Configuration File
+
+rkforge stores configuration in:
+
+- **Linux**: `~/.config/rk8s/rkforge.toml`
+- **macOS**: `~/Library/Application Support/rk8s/rkforge.toml`
+
+### Example Configuration
+
+```toml
+[[entries]]
+pat = "your-token-here"
+url = "https://your-distribution-server.com"
+
+[image]
+storage = "/data/rkforge"
+```
+
+## Configuration via CLI
+
+### View Configuration
+
+```bash
+rkforge config get image.storage
+```
+
+### Set Configuration
+
+```bash
+rkforge config set image.storage /data/rkforge
+```
+
+### Path Rules
+
+- Absolute paths are used as-is
+- `~` is expanded to the user's home directory
+- `~username/...` is not supported
+- `rkforge config get` prints the resolved effective path
+
+## Environment Variables
+
+rkforge does not rely heavily on environment variables. Most configuration is done via:
+
+1. Command-line flags
+2. Configuration file
+3. Interactive login flow
+
+## Auth Server Configuration
+
+When logging in, you specify the auth server:
+
+```bash
+rkforge login https://your-auth-server.com
+```
+
+The auth server handles GitHub OAuth and issues JWT tokens. These tokens are stored locally and used for registry authentication.
+
+## Registry URL vs Auth Server
+
+rkforge uses two distinct servers:
+
+| Component | Purpose | Example |
+|-----------|---------|---------|
+| Auth Server | GitHub OAuth, token issuance | `https://libra.tools` |
+| Registry URL | Image storage and retrieval | `127.0.0.1:8968` |
+
+When logging in with `rkforge login <auth-server>`, the auth server returns a token associated with the registry URL configured in the auth server.

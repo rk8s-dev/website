@@ -1,0 +1,110 @@
+---
+title: Authentication
+description: Authentication architecture for Distribution.
+---
+
+## Overview
+
+Distribution uses a centralized authentication architecture where the Web App handles GitHub OAuth and token issuance, while Distribution validates tokens through the Web App's verify API.
+
+## Authentication Flow
+
+### 1. rkforge Login
+
+1. User runs `rkforge login <auth-server>`
+2. rkforge opens browser to auth server's login page
+3. User authenticates via GitHub OAuth
+4. Auth server returns JWT token to rkforge
+5. rkforge stores token locally in `~/.config/rk8s/rkforge.toml`
+
+### 2. Registry Operations (Push/Pull)
+
+1. rkforge sends request with `Authorization: Bearer <jwt>`
+2. Distribution extracts the token
+3. Distribution calls Web App's verify API (`POST /api/internal/verify`)
+4. Web App validates token and returns permissions
+5. Distribution allows or denies the request
+
+### 3. Anonymous Access
+
+Public repositories can be accessed without authentication. When no token is provided or token is invalid, Distribution returns a `WWW-Authenticate` challenge header.
+
+## Token Validation
+
+Distribution validates tokens by calling the Web App's internal verify API:
+
+```
+POST /api/internal/verify
+Header: X-Registry-Internal-Token: <shared_secret>
+Body: {
+  "token": "<jwt>",
+  "namespace": "<requested-namespace>",
+  "repository": "<requested-repo>",
+  "action": "<pull|push>"
+}
+```
+
+### Response
+
+Success (`200`):
+```json
+{
+  "valid": true,
+  "permissions": ["push", "pull"],
+  "user": {
+    "username": "myuser",
+    "userId": "123"
+  }
+}
+```
+
+Failure (`401`/`403`):
+```json
+{
+  "valid": false,
+  "permissions": [],
+  "user": null,
+  "error": "namespace_mismatch"
+}
+```
+
+## Configuration Requirements
+
+For authentication to work correctly:
+
+1. **JWT Secret Alignment**: Distribution and Web App must share the same `JWT_SECRET`
+2. **Internal Token Alignment**: Distribution and Web App must share the same `INTERNAL_VERIFY_TOKEN`
+3. **Network Connectivity**: Distribution must be able to reach the Web App's verify API
+
+### Example Configuration
+
+**Web App (.env)**:
+```bash
+JWT_SECRET=shared-secret
+INTERNAL_VERIFY_TOKEN=dev-internal-verify-token
+```
+
+**Distribution (.env)**:
+```bash
+JWT_SECRET=shared-secret
+INTERNAL_VERIFY_TOKEN=dev-internal-verify-token
+OCI_REGISTRY_AUTH_API_URL=http://localhost:7001/api/internal/verify
+```
+
+## Error Responses
+
+| Status Code | Meaning |
+|-------------|---------|
+| `401 Unauthorized` | Invalid or expired token |
+| `403 Forbidden` | Valid token but insufficient permissions |
+| `500 Internal Server Error` | Authentication service error |
+
+## OCI Challenge
+
+When authentication fails, Distribution returns a standard OCI challenge:
+
+```
+WWW-Authenticate: Bearer realm="http://localhost:8968/auth/token",service="oci-registry",scope="repository:*:*"
+```
+
+Clients can then use `/auth/token` to obtain a valid token.

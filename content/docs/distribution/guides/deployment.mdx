@@ -1,0 +1,131 @@
+---
+title: Deployment
+description: Deploy Distribution using Docker or from source.
+---
+
+## Prerequisites
+
+- PostgreSQL database
+- Sufficient storage for image blobs
+- (For S3 mode) S3-compatible storage service
+
+## Environment Variables
+
+Distribution requires the following environment variables:
+
+### Core Configuration
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `OCI_REGISTRY_URL` | Listening host | `127.0.0.1` |
+| `OCI_REGISTRY_PORT` | Listening port | `8968` |
+| `OCI_REGISTRY_STORAGE` | Storage backend: `FILESYSTEM` or `S3` | `FILESYSTEM` |
+| `OCI_REGISTRY_ROOTDIR` | Filesystem storage root | `/var/lib/oci-registry` |
+| `OCI_REGISTRY_PUBLIC_URL` | Public URL for the registry | `http://127.0.0.1:8968` |
+
+### Database Configuration
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `POSTGRES_HOST` | PostgreSQL host | `localhost` |
+| `POSTGRES_PORT` | PostgreSQL port | `5432` |
+| `POSTGRES_USER` | PostgreSQL user | `postgres` |
+| `POSTGRES_DB` | Database name | `postgres` |
+| `POSTGRES_PASSWORD` | PostgreSQL password | (required) |
+| `DATABASE_URL` | Full database URL (alternative to above) | - |
+
+### Authentication Configuration
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `JWT_SECRET` | Secret for JWT token validation | `secret` |
+| `JWT_LIFETIME_SECONDS` | Token lifetime in seconds | `3600` |
+| `OCI_REGISTRY_AUTH_API_URL` | Web App verify API URL | `http://127.0.0.1:7001/api/internal/verify` |
+| `INTERNAL_VERIFY_TOKEN` | Internal token for Web App communication | (required) |
+
+### S3 Storage Configuration
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `OCI_REGISTRY_S3_BUCKET` | S3 bucket name | (required for S3) |
+| `OCI_REGISTRY_S3_REGION` | S3 region | `us-east-1` |
+| `OCI_REGISTRY_S3_ENDPOINT` | S3 endpoint URL | (required for MinIO) |
+| `OCI_REGISTRY_S3_ACCESS_KEY_ID` | S3 access key | (required for S3) |
+| `OCI_REGISTRY_S3_SECRET_ACCESS_KEY` | S3 secret key | (required for S3) |
+| `OCI_REGISTRY_S3_PATH_STYLE` | Use path-style URLs | `false` |
+| `OCI_REGISTRY_S3_ALLOW_HTTP` | Allow HTTP connections | `false` |
+
+## Docker Deployment
+
+### Filesystem Mode
+
+```bash
+docker run -d \
+  --name distribution \
+  -p 8968:8968 \
+  -e OCI_REGISTRY_STORAGE=FILESYSTEM \
+  -e OCI_REGISTRY_ROOTDIR=/var/lib/oci-registry \
+  -e POSTGRES_PASSWORD=your-password \
+  -e JWT_SECRET=your-secret \
+  -e INTERNAL_VERIFY_TOKEN=your-internal-token \
+  -v registry-data:/var/lib/oci-registry \
+  distribution
+```
+
+### S3 Mode with MinIO
+
+```bash
+docker run -d \
+  --name distribution \
+  -p 8968:8968 \
+  -e OCI_REGISTRY_STORAGE=S3 \
+  -e OCI_REGISTRY_S3_BUCKET=registry \
+  -e OCI_REGISTRY_S3_REGION=us-east-1 \
+  -e OCI_REGISTRY_S3_ENDPOINT=http://minio:9000 \
+  -e OCI_REGISTRY_S3_ACCESS_KEY_ID=minioadmin \
+  -e OCI_REGISTRY_S3_SECRET_ACCESS_KEY=minioadmin \
+  -e OCI_REGISTRY_S3_PATH_STYLE=true \
+  -e OCI_REGISTRY_S3_ALLOW_HTTP=true \
+  -e POSTGRES_PASSWORD=your-password \
+  -e JWT_SECRET=your-secret \
+  -e INTERNAL_VERIFY_TOKEN=your-internal-token \
+  distribution
+```
+
+## Building from Source
+
+### Build
+
+```bash
+cargo build -p distribution --release
+```
+
+### Run
+
+```bash
+./target/release/distribution
+```
+
+Or with custom configuration:
+
+```bash
+./target/release/distribution \
+  --host 0.0.0.0 \
+  --port 8968 \
+  --storage FILESYSTEM \
+  --root /data/registry
+```
+
+## Database Migrations
+
+Distribution uses SQLx for database migrations, which run automatically on startup. Ensure the database is accessible before starting the server.
+
+## Health Check
+
+The registry provides a health endpoint:
+
+```bash
+curl http://localhost:8968/
+```
+
+Returns `200 OK` with `Docker-Distribution-API-Version: registry/2.0` header.

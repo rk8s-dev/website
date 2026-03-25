@@ -1,0 +1,99 @@
+---
+title: Registry Operations
+description: Push, pull, and manage images with rkforge.
+---
+
+## Push Images
+
+Push a locally built OCI image to a registry:
+
+```bash
+# Push with explicit registry URL
+rkforge push --url https://registry.example.com --path ./output/myimage mynamespace/myimage:latest
+
+# If only one server is configured, URL can be omitted
+rkforge push --path ./output/myimage mynamespace/myimage:latest
+```
+
+### Image Reference Format
+
+**Important**: The image reference should only contain the namespace and image name. The server URL is specified separately.
+
+```bash
+# Correct usage
+rkforge push --url 127.0.0.1:8968 --path ./output/myimage me/image:latest
+
+# Incorrect - DO NOT include server URL in image reference
+rkforge push --url 127.0.0.1:8968 --path ./output/myimage 127.0.0.1:8968/me/image:latest
+```
+
+### Namespace Auto-completion
+
+If no namespace (no `/`) is provided, `library/` is assumed:
+
+```bash
+# These are equivalent:
+rkforge pull nginx:latest
+rkforge pull library/nginx:latest
+```
+
+## Pull Images
+
+Pull an image from a registry:
+
+```bash
+# Pull with explicit registry URL
+rkforge pull --url https://registry.example.com mynamespace/myimage:latest
+
+# If only one server is configured, URL can be omitted
+rkforge pull mynamespace/myimage:latest
+```
+
+## Repository Management
+
+### List Repositories
+
+```bash
+# List from configured server
+rkforge repo list
+
+# List from specific server
+rkforge repo --url https://registry.example.com list
+```
+
+### Change Repository Visibility
+
+```bash
+# Make repository public
+rkforge repo vis mynamespace/hello-world public
+
+# Make repository private
+rkforge repo vis mynamespace/hello-world private
+
+# With explicit server URL
+rkforge repo --url https://registry.example.com vis mynamespace/hello-world public
+```
+
+## Authentication Requirements
+
+Push and pull operations require authentication. Use `rkforge login` before performing these operations.
+
+### Public Images
+
+Anonymous users can pull public images without authentication. However, cross-namespace access is restricted.
+
+## Build and Push in One Step
+
+Combine build and push:
+
+```bash
+rkforge build -f Dockerfile -t myregistry.com/myapp:latest \
+  --push \
+  --url https://myregistry.com .
+```
+
+This builds the image and automatically pushes it to the registry upon success.
+
+## Working with Multiple Registries
+
+rkforge supports multiple registry configurations. The token is stored per registry URL when you login. When pushing or pulling, use `--url` to specify which registry to use, or rely on the single configured server.

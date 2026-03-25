@@ -1,0 +1,195 @@
+---
+title: API Reference
+description: OCI Distribution API endpoints supported by Distribution.
+---
+
+## Overview
+
+Distribution implements the OCI Distribution Specification v2. The following endpoints are supported.
+
+## Base Endpoints
+
+### GET /
+
+API version endpoint. Returns registry version information.
+
+**Response Headers**:
+- `Docker-Distribution-API-Version: registry/2.0`
+- `Www-Authenticate: Bearer realm="...",service="oci-registry",scope="repository:*:*"`
+
+### GET /healthz
+
+Health check endpoint. Returns HTTP 200 if the server is ready.
+
+**Response**: `"http ready"`
+
+## Blob Operations
+
+### POST /v2/`{name}`/blobs/uploads/
+
+Initiate a new blob upload session.
+
+**Response**: `201 Created`
+- `Location`: URL for subsequent chunk uploads
+- `Docker-Upload-UUID`: Upload session UUID
+
+### PATCH /v2/`{name}`/blobs/uploads/`{uuid}`
+
+Upload a chunk of blob data.
+
+**Request**: Raw binary data
+
+**Response**: `202 Accepted`
+- `Location`: Updated upload URL
+- `Docker-Upload-UUID`: Session UUID (unchanged)
+
+### PUT /v2/`{name}`/blobs/uploads/`{uuid}`?digest=sha256:`{hash}`
+
+Complete the blob upload.
+
+**Query Parameters**:
+- `digest`: Expected SHA-256 digest of the blob
+
+**Response**: `201 Created`
+
+### GET /v2/`{name}`/blobs/`{digest}`
+
+Retrieve a blob by its digest.
+
+**Response**: Blob binary data
+
+### HEAD /v2/`{name}`/blobs/`{digest}`
+
+Check if a blob exists.
+
+**Response**: `200 OK` if exists, `404 Not Found` otherwise
+
+### DELETE /v2/`{name}`/blobs/`{digest}`
+
+Delete a blob.
+
+**Response**: `202 Accepted`
+
+## Manifest Operations
+
+### GET /v2/`{name}`/manifests/`{reference}`
+
+Retrieve a manifest by tag or digest.
+
+**Path Parameters**:
+- `reference`: Tag name or digest
+
+**Response**: Manifest JSON
+
+### HEAD /v2/`{name}`/manifests/`{reference}`
+
+Check if a manifest exists.
+
+**Response**: `200 OK` if exists, `404 Not Found` otherwise
+
+### PUT /v2/`{name}`/manifests/`{reference}`
+
+Upload a manifest.
+
+**Request**: Manifest JSON
+
+**Response**: `201 Created`
+
+### DELETE /v2/`{name}`/manifests/`{reference}`
+
+Delete a manifest or tag.
+
+**Response**: `202 Accepted`
+
+## Tag Operations
+
+### GET /v2/`{name}`/tags/list
+
+List all tags for a repository.
+
+**Query Parameters**:
+- `n`: Maximum number of tags to return
+- `last`: Pagination cursor
+
+**Response**:
+```json
+{
+  "name": "namespace/repo",
+  "tags": ["v1", "v2", "latest"]
+}
+```
+
+## Authentication Endpoints
+
+### GET /auth/token
+
+Obtain an authentication token (OCI-compatible).
+
+**Query Parameters**:
+- `service`: Registry service name (e.g., `oci-registry`)
+- `scope`: Requested access scope (e.g., `repository:namespace/repo:pull`)
+- `client_id`: Client identifier
+
+**Response**:
+```json
+{
+  "token": "...",
+  "expires_in": 3600,
+  "issued_at": "2024-01-01T00:00:00Z"
+}
+```
+
+## Error Responses
+
+### 401 Unauthorized
+
+```json
+{
+  "errors": [{
+    "code": "UNAUTHORIZED",
+    "message": "authentication required"
+  }]
+}
+```
+
+### 403 Forbidden
+
+```json
+{
+  "errors": [{
+    "code": "DENIED",
+    "message": "permission denied"
+  }]
+}
+```
+
+### 404 Not Found
+
+```json
+{
+  "errors": [{
+    "code": "NOT_FOUND",
+    "message": "resource not found"
+  }]
+}
+```
+
+### 500 Internal Server Error
+
+```json
+{
+  "errors": [{
+    "code": "INTERNAL_SERVER_ERROR",
+    "message": "internal server error"
+  }]
+}
+```
+
+## Media Types
+
+| Type | Description |
+|------|-------------|
+| `application/vnd.oci.image.manifest.v1+json` | OCI Manifest |
+| `application/vnd.oci.image.index.v1+json` | OCI Image Index |
+| `application/vnd.docker.distribution.manifest.v2+json` | Docker Manifest v2 |
+| `application/vnd.docker.distribution.manifest.list.v2+json` | Docker Manifest List |

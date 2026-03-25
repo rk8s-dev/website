@@ -1,0 +1,92 @@
+---
+title: Authentication
+description: Learn how to authenticate with rkforge using GitHub OAuth or manual tokens.
+---
+
+## GitHub OAuth Login
+
+rkforge supports authentication via GitHub OAuth. This is the recommended method for most users.
+
+### Basic Login
+
+```bash
+# Use default auth server (https://libra.tools)
+rkforge login
+
+# Specify auth server explicitly
+rkforge login https://your-auth-server.com
+rkforge login 127.0.0.1:7001
+```
+
+The login command opens a browser window for OAuth authentication. After successful authentication, credentials are stored locally.
+
+### How It Works
+
+1. rkforge starts a local callback server on `127.0.0.1:<random_port>`
+2. A browser opens to the auth server's login page
+3. After GitHub OAuth completion, a JWT token is returned
+4. rkforge saves the token to `~/.config/rk8s/rkforge.toml`
+
+### Skip TLS Verification
+
+For local development with self-signed certificates:
+
+```bash
+rkforge login --skip-tls-verify https://localhost:7001
+```
+
+## Manual Token Authentication
+
+For debugging or environments without OAuth, you can manually configure tokens.
+
+### Obtaining a Token
+
+```bash
+curl -u "username:password" "http://your-distribution-server.com/auth/token"
+```
+
+### Manual Configuration
+
+Edit `~/.config/rk8s/rkforge.toml` (Linux) or `~/Library/Application Support/rk8s/rkforge.toml` (macOS):
+
+```toml
+[[entries]]
+pat = "your-token-here"
+url = "your-distribution-server.com"
+
+[image]
+storage = "/data/rkforge"
+```
+
+## Logout
+
+```bash
+# Logout from default server
+rkforge logout
+
+# Logout from specific server
+rkforge logout https://your-distribution-server.com
+```
+
+## Token Expiration
+
+JWT tokens expire after a configurable period (default: 1 hour for Distribution tokens). When a token expires, run `rkforge login` again to obtain a new token.
+
+## Configuration Storage
+
+rkforge stores configuration in:
+
+- **Linux**: `~/.config/rk8s/rkforge.toml`
+- **macOS**: `~/Library/Application Support/rk8s/rkforge.toml`
+
+You can also manage configuration via CLI:
+
+```bash
+rkforge config set image.storage /data/rkforge
+rkforge config get image.storage
+```
+
+Path rules:
+- Absolute paths and `~` are supported
+- `~username/...` is not supported
+- `rkforge config get` prints the resolved effective path

@@ -1,0 +1,123 @@
+---
+title: Storage Configuration
+description: Configure storage backends for Distribution.
+---
+
+## Overview
+
+Distribution supports two storage backends: **Filesystem** (default) and **S3-compatible object storage**.
+
+## Filesystem Storage
+
+Filesystem storage stores all blobs and manifests in a local directory structure.
+
+### Configuration
+
+```bash
+OCI_REGISTRY_STORAGE=FILESYSTEM
+OCI_REGISTRY_ROOTDIR=/var/lib/oci-registry
+```
+
+### Directory Structure
+
+```
+<rootdir>/
+├── v2/
+│   ├── blobs/
+│   │   └── sha256/
+│   │       └── <first-2-chars>/
+│   │           └── <full-digest>/
+│   │               └── data
+│   └── repositories/
+│       └── <namespace>/
+│           └── <repo>/
+│               └── _manifests/
+│                   └── tags/
+│                       └── <tag>/
+│                           └── link
+```
+
+## S3 Storage
+
+S3 storage uses any S3-compatible object storage service (AWS S3, MinIO, etc.).
+
+### Configuration
+
+```bash
+OCI_REGISTRY_STORAGE=S3
+OCI_REGISTRY_S3_BUCKET=my-registry
+OCI_REGISTRY_S3_REGION=us-east-1
+OCI_REGISTRY_S3_ENDPOINT=https://s3.amazonaws.com
+OCI_REGISTRY_S3_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE
+OCI_REGISTRY_S3_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+```
+
+### MinIO Configuration
+
+For local development with MinIO:
+
+```bash
+OCI_REGISTRY_STORAGE=S3
+OCI_REGISTRY_S3_BUCKET=registry
+OCI_REGISTRY_S3_REGION=us-east-1
+OCI_REGISTRY_S3_ENDPOINT=http://minio:9000
+OCI_REGISTRY_S3_ACCESS_KEY_ID=minioadmin
+OCI_REGISTRY_S3_SECRET_ACCESS_KEY=minioadmin
+OCI_REGISTRY_S3_PATH_STYLE=true
+OCI_REGISTRY_S3_ALLOW_HTTP=true
+```
+
+### S3 Path Structure
+
+```
+<bucket>/
+├── v2/
+│   ├── blobs/
+│   │   └── sha256/
+│   │       └── <first-2-chars>/
+│   │           └── <full-digest>/
+│   │               └── data
+│   └── repositories/
+│       └── <namespace>/
+│           └── <repo>/
+│               └── _manifests/
+│                   └── tags/
+│                       └── <tag>/
+│                           └── link
+```
+
+## Configuration Reference
+
+| Variable | Description | Required | Default |
+|----------|-------------|----------|---------|
+| `OCI_REGISTRY_STORAGE` | Storage backend type | Yes | `FILESYSTEM` |
+| `OCI_REGISTRY_ROOTDIR` | Filesystem root directory | FILESYSTEM mode | `/var/lib/oci-registry` |
+| `OCI_REGISTRY_S3_BUCKET` | S3 bucket name | S3 mode | - |
+| `OCI_REGISTRY_S3_REGION` | S3 region | S3 mode | `us-east-1` |
+| `OCI_REGISTRY_S3_ENDPOINT` | S3 endpoint URL | MinIO/RustFS | - |
+| `OCI_REGISTRY_S3_ACCESS_KEY_ID` | S3 access key | S3 mode | - |
+| `OCI_REGISTRY_S3_SECRET_ACCESS_KEY` | S3 secret key | S3 mode | - |
+| `OCI_REGISTRY_S3_PATH_STYLE` | Use path-style URLs | No | `false` |
+| `OCI_REGISTRY_S3_ALLOW_HTTP` | Allow HTTP connections | No | `false` |
+
+## Storage Operations
+
+### Digest Verification
+
+On blob upload completion, Distribution verifies the SHA-256 digest of uploaded data. If verification fails, the upload is rejected with `DIGEST_INVALID`.
+
+### Chunked Upload
+
+Large blobs are uploaded in chunks:
+
+1. `POST /v2/<name>/blobs/uploads/` - Start upload session
+2. `PATCH /v2/<name>/blobs/uploads/<uuid>` - Upload chunks
+3. `PUT /v2/<name>/blobs/uploads/<uuid>?digest=sha256:...` - Complete upload
+
+Memory usage during chunked uploads is constant (~8KB buffer) regardless of blob size.
+
+### Streaming I/O
+
+All data operations use streaming I/O:
+- Chunked data is written directly to disk or S3
+- No full blob buffering in memory during normal operations

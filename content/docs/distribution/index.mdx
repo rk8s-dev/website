@@ -1,6 +1,58 @@
 ---
 title: Distribution
-description: Rk8s is a lightweight, Kubernetes-compatible container orchestration.
+description: OCI-compliant container registry for storing and distributing container images.
 ---
 
-## Distribution
+## Overview
+
+Distribution is an OCI-compliant container registry that provides secure image storage and distribution capabilities. It implements the OCI Distribution specification and supports both local filesystem storage and S3-compatible object storage backends.
+
+## Key Features
+
+- **OCI Distribution Compliant**: Fully implements the OCI Distribution specification
+- **Dual Storage Backends**: Supports filesystem and S3-compatible storage
+- **JWT Authentication**: Centralized authentication via Web App integration
+- **Repository Management**: Public and private repository support
+- **Chunked Uploads**: Efficient large image layer uploads
+
+## Architecture
+
+```
+┌────────────────┐    OCI API     ┌──────────────────┐
+│  Docker Client │ ──────────────>│  Distribution     │
+│  / rkforge     │                │  (Axum server)    │
+└────────────────┘                └────────┬─────────┘
+                                           │ Storage trait
+                                 ┌─────────┴──────────┐
+                                 │                   │
+                          ┌──────┴──────┐      ┌───────┴──────┐
+                          │ Filesystem  │      │  S3Storage   │
+                          │ Storage     │      │ (object_store│
+                          └─────────────┘      └──────────────┘
+```
+
+## Quick Reference
+
+| Component | Description |
+|-----------|-------------|
+| `distribution` | Main registry server binary |
+| Port | Configurable (default: 8968) |
+| Storage | FILESYSTEM or S3 |
+| Database | PostgreSQL |
+
+## Storage Backends
+
+Distribution supports two storage backends:
+
+1. **FILESYSTEM** (default): Stores blobs and manifests on local filesystem
+2. **S3**: Stores blobs and manifests in S3-compatible object storage (MinIO, AWS S3, etc.)
+
+## Authentication Architecture
+
+Distribution uses centralized authentication via Web App integration:
+
+1. rkforge authenticates via Web App GitHub OAuth
+2. Distribution validates tokens against Web App's verify API
+3. Repository access is controlled based on namespace ownership
+
+See the [Authentication](/docs/distribution/guides/authentication) guide for details.

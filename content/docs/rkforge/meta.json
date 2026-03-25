@@ -1,0 +1,5 @@
+{
+  "title": "rkforge",
+  "pages": ["guides/authentication", "guides/building", "guides/registry-operations", "reference/configuration"],
+  "defaultOpen": false
+}

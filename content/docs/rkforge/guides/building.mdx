@@ -1,0 +1,235 @@
+---
+title: Building Images
+description: Learn how to build container images with rkforge.
+---
+
+## Basic Build
+
+Build a simple image from a Dockerfile:
+
+```bash
+# Build with default settings (requires root)
+sudo rkforge build -f Dockerfile -t myimage:latest .
+
+# Or use libfuse (userspace FUSE instead of kernel overlayfs)
+rkforge build -f Dockerfile -t myimage:latest --libfuse .
+```
+
+## Build Options
+
+### Common Options
+
+| Option | Description |
+|--------|-------------|
+| `-f, --file <FILE>` | Dockerfile or Containerfile path |
+| `-t, --tag <NAME>` | Image tag (format: `[registry/]repository[:tag]`) |
+| `-o, --output-dir <DIR>` | Output directory for the OCI layout |
+| `-l, --libfuse` | Use libfuse-rs instead of native mount |
+| `--target <TARGET>` | Build to a specific stage |
+
+### Output Directory
+
+The `-t` option determines the output directory name:
+
+| Tag | Output Directory |
+|-----|-----------------|
+| `myimage` | `<output-dir>/myimage` |
+| `nginx:latest` | `<output-dir>/nginx-latest` |
+| `example.com/ns/app:v1` | `<output-dir>/app-v1` |
+
+## Build-time Arguments
+
+Pass arguments to the build:
+
+```bash
+rkforge build -f Dockerfile -t myapp:latest \
+  --build-arg VERSION=1.0.0 \
+  --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+```
+
+### Argument Priority
+
+CLI `--build-arg` values take precedence over:
+1. Dockerfile `ARG` defaults
+2. Values set in earlier build stages
+
+## Caching
+
+### Disable All Caching
+
+```bash
+rkforge build -f Dockerfile -t myapp:latest --no-cache .
+```
+
+### Disable Caching for Specific Stages
+
+```bash
+rkforge build -f Dockerfile -t myapp:latest \
+  --no-cache-filter builder \
+  --no-cache-filter 0 .
+```
+
+## Runtime Options
+
+### Shared Memory Size
+
+```bash
+rkforge build -f Dockerfile -t myapp:latest --shm-size 64m .
+```
+
+Supported units: `b`, `k`/`kb`, `m`/`mb`, `g`/`gb`, `t`/`tb`.
+
+### Ulimits
+
+```bash
+rkforge build -f Dockerfile -t myapp:latest \
+  --ulimit nofile=1024:2048 \
+  --ulimit nproc=512:1024 .
+```
+
+Supported resources: `core`, `cpu`, `data`, `fsize`, `nofile`, `nproc`, `stack`, `as`, `memlock`.
+
+### Custom Hosts
+
+```bash
+rkforge build -f Dockerfile -t myapp:latest \
+  --add-host mirror.local:10.0.0.2 \
+  --add-host api.local:10.0.0.3 .
+```
+
+### Network Mode
+
+```bash
+# Use host network
+rkforge build -f Dockerfile -t myapp:latest --network host .
+
+# Isolate network namespace
+rkforge build -f Dockerfile -t myapp:latest --network none .
+```
+
+### Cgroup Parent
+
+```bash
+rkforge build -f Dockerfile -t myapp:latest --cgroup-parent /rkforge/build .
+```
+
+Requires cgroup v2 and sufficient privileges.
+
+## Secrets and SSH
+
+### Build Secrets
+
+Mount secrets during build (not stored in final image):
+
+```bash
+rkforge build -f Dockerfile -t myapp:latest \
+  --secret id=dbpass,src=./secrets/dbpass.txt .
+```
+
+The secret is available at `/run/secrets/dbpass` during build.
+
+### SSH Agent Forwarding
+
+```bash
+rkforge build -f Dockerfile -t myapp:latest \
+  --ssh default \
+  --ssh github=/path/to/github.sock .
+```
+
+SSH agent sockets are mounted and `SSH_AUTH_SOCK` is set.
+
+## Labels and Annotations
+
+### Image Labels
+
+```bash
+rkforge build -f Dockerfile -t myapp:latest \
+  --label "org.opencontainers.image.source=https://github.com/myorg/myapp" \
+  --label "version=1.0.0" .
+```
+
+### Manifest Annotations
+
+```bash
+rkforge build -f Dockerfile -t myapp:latest \
+  --annotation "org.opencontainers.image.description=My application" .
+```
+
+Annotations are added to both the index and manifest descriptors.
+
+## Progress Output
+
+```bash
+# Auto-detect terminal type (default)
+rkforge build -f Dockerfile -t myapp:latest .
+
+# Plain mode - detailed instruction output
+rkforge build -f Dockerfile -t myapp:latest --progress plain .
+
+# TTY mode - simplified progress
+rkforge build -f Dockerfile -t myapp:latest --progress tty .
+```
+
+Use `-q` or `--quiet` to suppress all output except errors.
+
+## Metadata Output
+
+### Image ID File
+
+Write the image digest to a file:
+
+```bash
+rkforge build -f Dockerfile -t myapp:latest --iidfile /tmp/image-id.txt .
+```
+
+### Build Metadata File
+
+Output JSON metadata:
+
+```bash
+rkforge build -f Dockerfile -t myapp:latest --metadata-file /tmp/metadata.json .
+```
+
+Example output:
+```json
+{
+  "tags": ["myapp:latest"],
+  "digest": "sha256:abc123...",
+  "id": "sha256:abc123...",
+  "build_args": {"VERSION": "1.0.0"},
+  "duration_ms": 45230
+}
+```
+
+## Push After Build
+
+Build and push in one step:
+
+```bash
+rkforge build -f Dockerfile -t myregistry.com/myapp:latest \
+  --push \
+  --url https://myregistry.com .
+```
+
+Requires `--push` when using `--tag`/`-t`.
+
+## Supported Dockerfile Instructions
+
+| Instruction | Status |
+|-------------|--------|
+| FROM | Supported |
+| RUN | Supported |
+| CMD | Supported |
+| ENV | Supported |
+| LABEL | Supported |
+| COPY | Supported |
+| ENTRYPOINT | Supported |
+| ARG | Supported |
+| WORKDIR | Supported |
+| USER | Supported |
+| VOLUME | Supported |
+| STOPSIGNAL | Supported |
+| EXPOSE | Supported |
+| SHELL | Supported |
+| HEALTHCHECK | Ignored (with warning) |
+| ONBUILD | Ignored (with warning) |
