@@ -1,0 +1,123 @@
+---
+title: dagrs
+description: Flow-based asynchronous DAG task orchestration for Rust (v0.8.1).
+---
+
+## Introduction
+
+Dagrs is an easy-to-use, high-performance asynchronous task framework for Rust. It follows the Flow-based Programming model and helps you build task graphs with explicit dependencies, message passing, and controllable execution flow. Dagrs is well suited to workflow engines, data pipelines, automation backends, and other long-running orchestration scenarios.
+
+<Callout type="info">
+  Current compatible release pair: `dagrs 0.8.1` + `dagrs-derive 0.5.0`.
+</Callout>
+
+### Project overview
+
+#### Flow based programming
+
+[Flow-based Programming](https://en.wikipedia.org/wiki/Flow-based_programming) models software as a network of independent components exchanging packets through predefined connections.
+Dagrs adopts this model to make asynchronous workflow composition easier to reason about and maintain.
+
+#### Dagrs's role in your project
+
+When a system has multiple dependent tasks, handwritten async orchestration quickly becomes complex.
+Dagrs provides a task abstraction plus async communication primitives so you can focus on business logic instead of scheduler glue code.
+
+#### Key features
+
+| Feature | Description |
+| --- | --- |
+| Black-box processes | Encapsulated nodes with clear input/output contracts. |
+| Independent network construction | Graph topology is defined outside task internals. |
+| Asynchronism | Async execution and async inter-node communication. |
+| Ownership and lifetime | Packet ownership and lifecycle are explicit. |
+| Bounded and finite connections | Channels are bounded and controlled. |
+| Reverse pressure | Flow naturally slows when downstream is congested. |
+
+### Technology and libraries
+
+- [Rust](https://www.rust-lang.org/)
+- [tokio](https://crates.io/crates/tokio)
+- [async-trait](https://crates.io/crates/async-trait)
+
+### Version compatibility
+
+| Crate | Latest in this doc | Notes |
+| --- | --- | --- |
+| `dagrs` | `0.8.1` | Async-only runtime API, structured errors, build APIs return `Result`. |
+| `dagrs-derive` | `0.5.0` | Targets `dagrs 0.8.1`; macro contracts updated. |
+
+### What's new in `0.8.1`
+
+- Public error model unified to `DagrsError` + `ErrorCode`.
+- Graph build APIs now return `Result`:
+  - `Graph::add_node(...)`
+  - `Graph::add_edge(...)`
+  - `LoopSubgraph::add_node(...)`
+- `Graph::async_start()` now returns `ExecutionReport`.
+- Final runtime event is now `GraphEvent::ExecutionTerminated` (replaces `GraphFinished`).
+- `ExecutionHook::on_error` was removed; failures are surfaced by structured errors and events.
+
+### Install
+
+```toml
+[dependencies]
+dagrs = { version = "0.8.1", features = ["derive"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+async-trait = "0.1"
+```
+
+`derive` is enabled by default, so most users can also write just:
+
+```toml
+[dependencies]
+dagrs = "0.8.1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+async-trait = "0.1"
+```
+
+If you depend on macros directly:
+
+```toml
+[dependencies]
+dagrs-derive = "0.5.0"
+```
+
+### Core building blocks
+
+| Type | Role |
+| --- | --- |
+| `Graph` | Owns nodes, edges, runtime state, hooks, events, and checkpoints. |
+| `Node` | Scheduling unit identified by `NodeId` and `NodeName`. |
+| `Action` | Async execution logic used by `DefaultNode` or custom nodes. |
+| `EnvVar` | Graph-scoped environment store shared across nodes. |
+| `InChannels` / `OutChannels` | Async receive/send APIs for upstream and downstream communication. |
+| `NodeTable` | Allocates stable IDs for node names during graph construction. |
+| `ExecutionReport` | Execution result contract returned by `graph.async_start().await`. |
+| `DagrsError` / `ErrorCode` | Stable error surface for graph build and runtime failures. |
+
+### Recommended reading path
+
+<Cards>
+  <Card
+    title="Quick Start"
+    href="./quick-start"
+    description="Install dagrs, define nodes, add edges, set env, and execute your first graph."
+  />
+  <Card
+    title="Advanced Features"
+    href="./advanced-features"
+    description="Conditional nodes, routers, loops, typed channels, checkpoints, events, retries, and hooks."
+  />
+  <Card
+    title="dagrs-derive"
+    href="./dagrs-derive"
+    description="Use `#[auto_node]` and `dependencies!` to reduce graph boilerplate."
+  />
+</Cards>
+
+### Source references
+
+- [dagrs on crates.io](https://crates.io/crates/dagrs)
+- [dagrs-derive on crates.io](https://crates.io/crates/dagrs-derive)
+- [dagrs repository](https://github.com/dagrs-dev/dagrs)

@@ -1,0 +1,120 @@
+---
+title: dagrs-derive
+description: Proc macros that reduce node and graph boilerplate in dagrs.
+---
+
+## dagrs-derive
+
+`dagrs-derive` is the proc-macro companion crate for `dagrs`.
+In normal application code you usually consume it through `dagrs` itself, because the `derive` feature re-exports the macros.
+
+`dagrs-derive 0.5.0` targets the `dagrs 0.8.1` API surface.
+
+```toml
+[dependencies]
+dagrs = { version = "0.8.1", features = ["derive"] }
+```
+
+### `#[auto_node]`
+
+`#[auto_node]` generates the standard `Node` fields and trait implementation for a custom node type.
+
+```rust
+use dagrs::{EmptyAction, InChannels, NodeTable, OutChannels, auto_node};
+
+#[auto_node]
+struct MyNode {
+    label: &'static str,
+}
+
+impl MyNode {
+    fn new(label: &'static str, node_table: &mut NodeTable) -> Self {
+        let name = format!("node-{label}");
+
+        Self {
+            id: node_table.alloc_id_for(&name),
+            name,
+            input_channels: InChannels::default(),
+            output_channels: OutChannels::default(),
+            action: Box::new(EmptyAction),
+            label,
+        }
+    }
+}
+```
+
+The macro-generated struct layout includes:
+
+- `id: dagrs::NodeId`
+- `name: dagrs::NodeName`
+- `input_channels: dagrs::InChannels`
+- `output_channels: dagrs::OutChannels`
+- `action: Box<dyn dagrs::Action>`
+
+Use it when you want custom fields on a node but do not want to hand-write the full `impl Node`.
+
+In `0.5.0`, `auto_node` focuses on safe, explicit contracts:
+
+- It no longer injects `unsafe impl Send/Sync`.
+- User-defined fields must satisfy `dagrs::Node` trait bounds naturally.
+- Reserved field collisions now fail with compile-time diagnostics.
+
+### Supported struct forms
+
+`#[auto_node]` is intended for:
+
+- named structs
+- generic named structs
+- unit structs
+
+It is not intended for tuple structs.
+
+### `dependencies!`
+
+`dependencies!` provides a compact DSL for graph construction.
+In `0.5.0`, it returns `Result<dagrs::Graph, dagrs::DagrsError>`.
+
+```rust
+use dagrs::{dependencies, EmptyAction, InChannels, NodeTable, OutChannels, auto_node};
+
+#[auto_node]
+struct MyNode;
+
+impl MyNode {
+    fn new(name: &str, node_table: &mut NodeTable) -> Self {
+        Self {
+            id: node_table.alloc_id_for(name),
+            name: name.to_string(),
+            input_channels: InChannels::default(),
+            output_channels: OutChannels::default(),
+            action: Box::new(EmptyAction),
+        }
+    }
+}
+
+let mut table = NodeTable::new();
+let start = MyNode::new("start", &mut table);
+let fetch = MyNode::new("fetch", &mut table);
+let store = MyNode::new("store", &mut table);
+
+let mut graph = dependencies!(
+    start -> fetch,
+    fetch -> store
+)?;
+```
+
+This is helpful for examples, tests, and small DAGs where the dependency topology is easier to read as a relay list than as repeated `add_edge` calls.
+
+### When to depend on `dagrs-derive` directly
+
+Most users do not need a direct dependency. Add `dagrs-derive` only if you explicitly want to manage proc-macro features separately from `dagrs` or document the macros as a standalone crate.
+
+```toml
+[dependencies]
+dagrs-derive = "0.5.0"
+```
+
+### Source references
+
+- [dagrs-derive on crates.io](https://crates.io/crates/dagrs-derive)
+- [dagrs repository](https://github.com/dagrs-dev/dagrs)
