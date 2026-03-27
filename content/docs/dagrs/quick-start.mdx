@@ -1,0 +1,135 @@
+---
+title: Quick Start
+description: Build and run your first dagrs graph with async execution (dagrs 0.8.1).
+---
+
+## Quick Start
+
+The smallest `dagrs` program has four parts:
+
+1. Define an `Action`.
+2. Wrap it in a node.
+3. Add nodes and edges to a `Graph`.
+4. Execute with `graph.async_start().await` and inspect `ExecutionReport`.
+
+<Callout type="warning">
+    `dagrs 0.8.1` is async-only. Build APIs (`add_node` / `add_edge`) now return `Result`, and execution returns `ExecutionReport`.
+</Callout>
+
+### Minimal example
+
+This example mirrors the crate's `hello_dagrs.rs` pattern and returns a single `"Hello Dagrs"` output.
+
+```rust
+use std::sync::Arc;
+
+use async_trait::async_trait;
+use dagrs::{
+    Action, Content, DagrsError, DefaultNode, EnvVar, Graph, InChannels, Node, NodeTable,
+    OutChannels, Output,
+};
+
+#[derive(Default)]
+struct HelloAction;
+
+#[async_trait]
+impl Action for HelloAction {
+    async fn run(&self, _: &mut InChannels, _: &mut OutChannels, _: Arc<EnvVar>) -> Output {
+        Output::Out(Some(Content::new("Hello Dagrs".to_string())))
+    }
+}
+
+#[tokio::main]
+async fn main() -> Result<(), DagrsError> {
+    let mut node_table = NodeTable::new();
+    let hello = DefaultNode::with_action("hello".to_string(), HelloAction, &mut node_table);
+    let hello_id = hello.id();
+
+    let mut graph = Graph::new();
+    graph.add_node(hello)?;
+
+    let report = graph.async_start().await?;
+    assert_eq!(
+        report.status,
+        dagrs::CompletionStatus::Succeeded,
+    );
+
+    let message = graph
+        .get_outputs()
+        .get(&hello_id)
+        .unwrap()
+        .get_out()
+        .unwrap()
+        .get::<String>()
+        .unwrap();
+
+    assert_eq!(message, "Hello Dagrs");
+
+    Ok(())
+}
+```
+
+### Building a dependency graph
+
+A more typical graph has multiple nodes and explicit edges:
+
+```rust
+let mut graph = Graph::new();
+graph.add_node(fetch)?;
+graph.add_node(transform)?;
+graph.add_node(store)?;
+
+graph.add_edge(fetch_id, vec![transform_id])?;
+graph.add_edge(transform_id, vec![store_id])?;
+
+let report = graph.async_start().await?;
+assert_eq!(report.status, dagrs::CompletionStatus::Succeeded);
+```
+
+`dagrs` schedules a node only after all of its required predecessors have completed and its input channels are ready.
+
+### Sharing graph-scoped state
+
+Use `EnvVar` for configuration or shared runtime context:
+
+```rust
+let mut env = EnvVar::new(node_table);
+env.set("base", 2usize);
+graph.set_env(env);
+```
+
+Nodes can then read this state during execution:
+
+```rust
+let base = env.get::<usize>("base").unwrap();
+```
+
+### Choosing a node style
+
+Use the simplest abstraction that fits your workflow:
+
+- `DefaultNode` when your node can be expressed as an `Action`.
+- A custom `impl Node` when you need extra state or a custom API surface.
+- `#[auto_node]` when you want a custom node type without writing the boilerplate fields by hand.
+
+### Channel APIs
+
+Execution and communication are fully async:
+
+- Receive with `recv_from().await`, `recv_any().await`, or `map(...).await`.
+- Send with `send_to(...).await` or `broadcast(...).await`.
+- Close with `close(...).await`.
+
+### Migration notes for older examples
+
+If you are upgrading from old snippets, apply these replacements:
+
+- `graph.add_node(node);` -> `graph.add_node(node)?;`
+- `graph.add_edge(from, to);` -> `graph.add_edge(from, to)?;`
+- `graph.async_start().await?;` -> `let report = graph.async_start().await?;`
+- Use `GraphEvent::ExecutionTerminated` as the final event instead of `GraphFinished`.
+
+### Next steps
+
+- See [Advanced Features](./advanced-features) for loops, routing, checkpoints, and observability.
+- See [dagrs-derive](./dagrs-derive) for derive macros and dependency DSL support.

@@ -1,0 +1,212 @@
+---
+title: Advanced Features
+description: Conditional flow, loops, typed channels, checkpoints, events, retries, and hooks in dagrs.
+---
+
+## Advanced Features
+
+Beyond simple DAG execution, `dagrs 0.8.1` exposes several control-flow and runtime features covered by the source tree and examples.
+
+<Callout type="info">
+    In `0.8.1`, graph build APIs return `Result`, execution returns `ExecutionReport`, and runtime errors are standardized as `DagrsError` + `ErrorCode`.
+</Callout>
+
+### Conditional nodes
+
+Use `ConditionalNode` when downstream execution should continue only if a predicate holds.
+
+```rust
+use dagrs::node::conditional_node::{Condition, ConditionalNode};
+
+struct VerifyGT(usize);
+
+#[async_trait]
+impl Condition for VerifyGT {
+    async fn run(
+        &self,
+        input: &mut InChannels,
+        output: &OutChannels,
+        _: Arc<EnvVar>,
+    ) -> bool {
+        let mut sum = 0usize;
+
+        input
+            .map(|content| content.unwrap().into_inner::<usize>().unwrap())
+            .await
+            .into_iter()
+            .for_each(|value| sum += *value);
+
+        if sum > self.0 {
+            output.broadcast(Content::new(sum)).await;
+            true
+        } else {
+            false
+        }
+    }
+}
+```
+
+If the condition returns `false`, dependent branches are skipped instead of executed.
+
+### Dynamic routing
+
+Use `RouterNode` when the graph should decide at runtime which downstream branches stay active.
+
+```rust
+use dagrs::node::router_node::{Router, RouterNode};
+
+struct FirstBranchRouter {
+    target_id: usize,
+}
+
+#[async_trait]
+impl Router for FirstBranchRouter {
+    async fn route(
+        &self,
+        _: &mut InChannels,
+        _: &OutChannels,
+        _: Arc<EnvVar>,
+    ) -> Vec<usize> {
+        vec![self.target_id]
+    }
+}
+```
+
+`Router::route` can both emit data and return the list of selected branch node IDs. Unselected downstream nodes are pruned and surface as skip events.
+
+### Loop execution
+
+`dagrs` supports two loop-oriented patterns:
+
+- `LoopSubgraph` for grouping a cycle-shaped subgraph as one logical node inside a parent graph.
+- `LoopNode` plus `LoopCondition` for post-check loop control without introducing an explicit back edge into the graph definition.
+
+```rust
+use dagrs::{LoopNode, node::loop_node::CountLoopCondition};
+
+let loop_node = LoopNode::new(
+    "retry-loop".to_string(),
+    worker_id,
+    CountLoopCondition::new(3),
+    &mut node_table,
+);
+```
+
+`LoopNode` behaves like a do-while controller: the loop body runs, then `should_continue` decides whether execution jumps back to the target node.
+
+### Typed channels
+
+When you want compile-time guarantees over channel payloads, implement `TypedAction` instead of raw `Action`.
+
+```rust
+use dagrs::{
+    Output,
+    connection::{in_channel::TypedInChannels, out_channel::TypedOutChannels},
+    node::typed_action::TypedAction,
+};
+
+struct Compute;
+
+#[async_trait]
+impl TypedAction for Compute {
+    type I = usize;
+    type O = usize;
+
+    async fn run(
+        &self,
+        mut input: TypedInChannels<Self::I>,
+        output: TypedOutChannels<Self::O>,
+        _: Arc<EnvVar>,
+    ) -> Output {
+        let values = input
+            .map(|result| result.ok().flatten().copied().unwrap_or_default())
+            .await;
+
+        let sum: usize = values.into_iter().sum();
+        output.broadcast(sum).await;
+        Output::new(sum)
+    }
+}
+```
+
+This is useful when the graph has well-defined data contracts between nodes and you want to avoid repeated `Content` downcasts.
+
+### Checkpoints and resume support
+
+The graph runtime can persist execution state through a `CheckpointStore`.
+
+```rust
+use dagrs::{CheckpointConfig, Graph, MemoryCheckpointStore};
+
+let mut graph = Graph::new();
+graph.set_checkpoint_store(Box::new(MemoryCheckpointStore::new()));
+graph.set_checkpoint_config(
+    CheckpointConfig::enabled()
+        .with_node_interval(5)
+        .with_max_checkpoints(10),
+);
+```
+
+This enables:
+
+- periodic checkpoint creation during graph execution
+- listing and loading saved checkpoints
+- resuming long-running workflows after interruption
+- inspecting node completion state and output summaries for debugging
+- explicit node checkpoint states via `NodeExecStatus`
+
+### Events and observability
+
+Subscribe to graph events to feed logs, dashboards, or external orchestrators:
+
+```rust
+let mut receiver = graph.subscribe();
+
+tokio::spawn(async move {
+    while let Ok(event) = receiver.recv().await {
+        println!("{event:?}");
+
+        if matches!(event, dagrs::GraphEvent::ExecutionTerminated { .. }) {
+            break;
+        }
+    }
+});
+```
+
+In `0.8.1`, treat `GraphEvent::ExecutionTerminated` as the final signal.
+`Progress` events are emitted at execution-block granularity, not one-per-node.
+
+### Retries and hooks
+
+Each node can opt into retry behavior by overriding `Node::max_retries()` and `Node::retry_delay_ms()`.
+
+For cross-cutting behavior such as tracing, metrics, or error reporting, register an `ExecutionHook` implementation. Hooks receive lifecycle callbacks before and after node execution, on retries, and on skipped nodes.
+
+### Structured error model
+
+`dagrs 0.8.1` unifies failures with `DagrsError` and `ErrorCode`.
+This applies to graph build failures, runtime failures, channel failures, and checkpoint failures.
+
+```rust
+use dagrs::{DagrsError, ErrorCode, Output};
+
+let err = DagrsError::new(
+    ErrorCode::DgRun0006NodeExecutionFailed,
+    "node command failed".to_string(),
+)
+.with_detail("exit_code", "1".to_string());
+
+let out = Output::error(err);
+```
+
+### 0.8.1 migration checklist
+
+- Handle graph build `Result` values (`add_node`, `add_edge`, `LoopSubgraph::add_node`).
+- Capture `ExecutionReport` from `async_start()` and resume APIs.
+- Replace `GraphFinished` listeners with `ExecutionTerminated`.
+- Remove usage of `Output::ErrWithExitCode(...)` and migrate to `Output::error(DagrsError)`.
+- If custom loop conditions keep iteration state, implement restore logic for checkpoint resume.
+
+<Callout type="info">
+    A practical pattern is to combine `graph.subscribe()` for external monitoring with `ExecutionHook` for in-process instrumentation.
+</Callout>

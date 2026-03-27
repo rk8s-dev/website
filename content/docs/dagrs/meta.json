@@ -1,0 +1,5 @@
+{
+  "title": "dagrs",
+  "pages": ["quick-start", "advanced-features", "dagrs-derive"],
+  "defaultOpen": true
+}
